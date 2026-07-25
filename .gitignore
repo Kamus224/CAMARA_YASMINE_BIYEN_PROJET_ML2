@@ -1,0 +1,37 @@
+# ===== Environnements Python =====
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.python-version
+
+# ===== Dataset Kaggle (JAMAIS sur GitHub - plusieurs Go) =====
+data/
+dataset/
+Garbage classification/
+garbage_classification/
+*.zip
+
+# ===== Modèles lourds (optionnel : utiliser Git LFS ou release GitHub) =====
+# Décommentez si le .h5 dépasse 100 Mo :
+# models/*.h5
+# models/*.keras
+
+# ===== Secrets & config locale =====
+.env
+kaggle.json
+secrets.toml
+
+# ===== IDE & OS =====
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ===== Artefacts d'entraînement =====
+logs/
+checkpoints/
+*.log
+.ipynb_checkpoints/
