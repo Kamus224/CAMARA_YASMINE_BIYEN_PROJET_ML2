@@ -1,0 +1,21 @@
+# --- Application Web (nouveau site dynamique) ---
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# --- Ancienne interface Streamlit (facultative, toujours disponible) ---
+streamlit==1.40.0
+
+# --- Deep Learning (Jalon 1) ---
+tensorflow==2.17.1
+numpy<2.0
+Pillow==10.4.0
+
+# --- Scraping Jumia (Jalon 2) ---
+requests==2.32.3
+beautifulsoup4==4.12.3
+lxml==5.3.0
+
+# --- Entraînement uniquement (non requis dans le conteneur final) ---
+# matplotlib==3.9.2
+# scikit-learn==1.5.2
+# kaggle==1.6.17
