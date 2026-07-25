@@ -1,0 +1,8 @@
+services:
+  ecosort:
+    build: .
+    image: ecosort
+    container_name: ecosort
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
