@@ -27,9 +27,9 @@ Chaque membre travaille sur sa branche, créée depuis `main` :
 
 ```bash
 git checkout main && git pull
-git checkout -b feature/model      # Étudiant 1
-git checkout -b feature/scraping   # Étudiant 2
-git checkout -b feature/app-docker # Étudiant 3
+git checkout -b feature/model      # Yasmine Diallo
+git checkout -b feature/scraping   # Biyen abdoul
+git checkout -b feature/app-docker # Camara Alpha Oumar
 ```
 
 ## 3. Cycle quotidien
