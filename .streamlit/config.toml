@@ -1,0 +1,11 @@
+[theme]
+# Thème sombre inspiré d'ecosort.org (fond quasi noir + accent vert)
+base = "dark"
+primaryColor = "#22c55e"          # vert accent (boutons, liens, focus)
+backgroundColor = "#060a07"        # fond principal quasi noir, teinté vert
+secondaryBackgroundColor = "#0e1510"  # cartes, sidebar, inputs
+textColor = "#e8f0ea"
+font = "sans serif"
+
+[server]
+port = 8501

@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EcoSort — Trouvez la bonne poubelle en un geste</title>
+<meta name="description" content="Recherchez un produit, l'IA vous indique instantanément la poubelle de tri : jaune, verte, bleue, bac électronique ou marron." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --bg:#0A130E;
+  --surface:#111C15;
+  --surface-2:#16241B;
+  --line:rgba(255,255,255,.08);
+  --line-strong:rgba(255,255,255,.14);
+  --text:#EAF2EC;
+  --muted:#8CA396;
+  --mint:#5EEAD4;
+  --emerald:#2FBF71;
+
+  /* Couleurs officielles des 5 poubelles (miroir de config.py) */
+  --c-JAUNE:#F5C518;
+  --c-VERTE:#16A34A;
+  --c-BLEUE:#3B82F6;
+  --c-D3E:#A78BFA;
+  --c-MARRON:#B45309;
+
+  --r:16px;
+  --r-lg:22px;
+  --shadow:0 24px 60px -24px rgba(0,0,0,.7);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  font-family:"Inter",system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  line-height:1.55;
+  overflow-x:hidden;
+}
+body::before{
+  /* halo ambiant fixe */
+  content:"";
+  position:fixed;inset:0;
+  background:
+    radial-gradient(900px 520px at 78% -8%, rgba(94,234,212,.10), transparent 60%),
+    radial-gradient(760px 480px at 10% 4%, rgba(47,191,113,.10), transparent 58%);
+  pointer-events:none;z-index:0;
+}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+
+/* ---------- barre de progression globale ---------- */
+#bar{
+  position:fixed;top:0;left:0;height:3px;width:0;z-index:50;
+  background:linear-gradient(90deg,var(--emerald),var(--mint));
+  box-shadow:0 0 12px rgba(94,234,212,.6);
+  transition:width .3s var(--ease),opacity .4s;
+  opacity:0;
+}
+#bar.on{opacity:1}
+
+/* ---------- nav ---------- */
+nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:22px 0;position:relative;z-index:2;
+}
+.brand{display:flex;align-items:center;gap:11px;font-weight:700}
+.brand .mark{
+  width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+  background:linear-gradient(140deg,var(--emerald),var(--mint));
+  color:#04140a;font-size:19px;
+  box-shadow:0 8px 22px -8px rgba(47,191,113,.8);
+}
+.brand .name{font-family:"Bricolage Grotesque";font-weight:800;font-size:1.15rem;letter-spacing:-.01em}
+.brand .name b{color:var(--mint)}
+.nav-links{display:flex;align-items:center;gap:26px;font-size:.92rem;color:var(--muted)}
+.nav-links a{transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-flag{
+  border:1px solid var(--line-strong);border-radius:999px;padding:5px 12px;
+  font-size:.82rem;color:var(--text);
+}
+
+/* ---------- hero ---------- */
+.hero{padding:46px 0 8px}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:9px;
+  font-family:"Space Mono";font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--mint);border:1px solid rgba(94,234,212,.28);
+  padding:6px 13px;border-radius:999px;background:rgba(94,234,212,.05);
+}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 10px var(--mint);animation:pulse 2.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+h1.title{
+  font-family:"Bricolage Grotesque";font-weight:800;
+  font-size:clamp(2.6rem,6.6vw,5rem);line-height:.98;letter-spacing:-.025em;
+  margin:22px 0 0;max-width:15ch;
+}
+h1.title .grad{
+  background:linear-gradient(100deg,var(--mint),var(--emerald) 70%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+.lede{color:var(--muted);font-size:1.12rem;max-width:52ch;margin:20px 0 0}
+
+/* ---------- barre de recherche ---------- */
+.search{margin:34px 0 0;max-width:640px}
+.search-box{
+  display:flex;align-items:center;gap:10px;
+  background:var(--surface);border:1px solid var(--line-strong);
+  border-radius:var(--r-lg);padding:8px 8px 8px 18px;
+  transition:border-color .2s,box-shadow .2s;
+}
+.search-box:focus-within{
+  border-color:rgba(94,234,212,.55);
+  box-shadow:0 0 0 4px rgba(94,234,212,.12);
+}
+.search-box svg{flex:0 0 auto;color:var(--muted)}
+.search-box input{
+  flex:1;background:transparent;border:0;outline:0;color:var(--text);
+  font-family:inherit;font-size:1.02rem;padding:12px 0;min-width:0;
+}
+.search-box input::placeholder{color:#5f7568}
+.btn-go{
+  flex:0 0 auto;border:0;cursor:pointer;
+  font-family:"Bricolage Grotesque";font-weight:700;font-size:.98rem;
+  color:#04140a;background:linear-gradient(140deg,var(--emerald),var(--mint));
+  padding:13px 22px;border-radius:16px;
+  display:inline-flex;align-items:center;gap:8px;
+  transition:transform .15s var(--ease),box-shadow .2s,filter .2s;
+  box-shadow:0 10px 26px -10px rgba(47,191,113,.75);
+}
+.btn-go:hover{transform:translateY(-1px);filter:brightness(1.05)}
+.btn-go:active{transform:translateY(0)}
+.btn-go:disabled{opacity:.6;cursor:progress;transform:none}
+.chips{display:flex;flex-wrap:wrap;gap:9px;margin:16px 2px 0}
+.chips span{color:var(--muted);font-size:.86rem;margin-right:2px;align-self:center}
+.chip{
+  cursor:pointer;font-size:.86rem;color:var(--text);
+  border:1px solid var(--line);background:var(--surface);
+  padding:7px 13px;border-radius:999px;transition:border-color .2s,background .2s,transform .15s;
+}
+.chip:hover{border-color:rgba(94,234,212,.5);background:var(--surface-2);transform:translateY(-1px)}
+
+/* ---------- légende des 5 poubelles (avant recherche) ---------- */
+.legend{margin:52px 0 12px}
+.legend h2{
+  font-family:"Bricolage Grotesque";font-weight:700;font-size:1rem;
+  letter-spacing:.02em;color:var(--muted);text-transform:none;margin:0 0 16px;
+  display:flex;align-items:center;gap:12px;
+}
+.legend h2::after{content:"";flex:1;height:1px;background:var(--line)}
+.legend-grid{
+  display:grid;gap:14px;
+  grid-template-columns:repeat(5,1fr);
+}
+.leg{
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r);padding:16px;position:relative;overflow:hidden;
+  transition:transform .18s var(--ease),border-color .2s;
+}
+.leg::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:var(--c)}
+.leg:hover{transform:translateY(-3px);border-color:var(--cline)}
+.leg .lg-top{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.leg .lg-emoji{font-size:1.15rem}
+.leg .lg-name{font-family:"Bricolage Grotesque";font-weight:700;font-size:.9rem;color:var(--c)}
+.leg .lg-desc{font-size:.8rem;color:var(--muted);line-height:1.5}
+
+/* ---------- résultats ---------- */
+.results{margin:56px 0 90px;display:none}
+.results.show{display:block;animation:fadeUp .5s var(--ease) both}
+.summary{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;
+  padding-bottom:20px;margin-bottom:26px;border-bottom:1px solid var(--line);
+}
+.summary .s-left{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.summary .s-count{font-family:"Bricolage Grotesque";font-weight:800;font-size:1.9rem;letter-spacing:-.02em}
+.summary .s-q{color:var(--muted);font-size:.98rem}
+.summary .s-q b{color:var(--text);font-weight:600}
+.badge-demo{
+  font-family:"Space Mono";font-size:.72rem;letter-spacing:.05em;
+  color:var(--c-JAUNE);border:1px solid rgba(245,197,24,.4);background:rgba(245,197,24,.08);
+  padding:5px 11px;border-radius:999px;
+}
+.btn-reset{
+  cursor:pointer;font-size:.9rem;color:var(--text);
+  border:1px solid var(--line-strong);background:transparent;
+  padding:10px 18px;border-radius:12px;transition:background .2s,border-color .2s;
+  display:inline-flex;align-items:center;gap:8px;
+}
+.btn-reset:hover{background:var(--surface);border-color:rgba(94,234,212,.5)}
+
+/* le plan de tri : 5 poubelles */
+.board{display:grid;gap:16px;grid-template-columns:repeat(5,1fr);align-items:start}
+.bin{
+  --c:var(--muted);
+  background:var(--surface);
+  border:1px solid var(--line);border-top:none;
+  border-radius:0 0 var(--r) var(--r);
+  min-height:120px;
+  display:flex;flex-direction:column;
+  opacity:.5;transition:opacity .3s;
+}
+.bin.has{opacity:1}
+.bin__lid{
+  background:linear-gradient(180deg,color-mix(in srgb,var(--c) 26%,var(--surface)),var(--surface));
+  border:1px solid var(--cline);border-bottom:1px solid var(--line);
+  border-radius:var(--r) var(--r) 0 0;
+  padding:13px 14px;display:flex;align-items:center;gap:9px;
+  position:sticky;top:0;
+}
+.bin__lid .b-emoji{font-size:1.05rem}
+.bin__lid .b-name{
+  font-family:"Bricolage Grotesque";font-weight:700;font-size:.82rem;
+  color:var(--c);letter-spacing:.01em;flex:1;line-height:1.15;
+}
+.bin__lid .b-count{
+  font-family:"Space Mono";font-weight:700;font-size:.74rem;
+  min-width:22px;height:22px;padding:0 7px;border-radius:999px;
+  display:grid;place-items:center;
+  background:var(--c);color:var(--cink);
+}
+.bin__body{padding:12px;display:flex;flex-direction:column;gap:12px;flex:1}
+.bin__empty{
+  flex:1;min-height:76px;border:1.5px dashed var(--line-strong);border-radius:12px;
+  display:grid;place-items:center;color:#4d6357;font-size:.78rem;text-align:center;padding:14px;
+}
+
+/* carte produit */
+.card{
+  background:var(--surface-2);border:1px solid var(--line);
+  border-radius:13px;overflow:hidden;
+  transition:transform .18s var(--ease),border-color .2s,box-shadow .2s;
+  animation:drop .5s var(--ease) both;
+}
+.card:hover{transform:translateY(-3px);border-color:var(--cline);box-shadow:0 14px 30px -18px rgba(0,0,0,.8)}
+.card__img{height:118px;background:#fff;display:grid;place-items:center;overflow:hidden}
+.card__img img{width:100%;height:100%;object-fit:contain;transition:transform .3s var(--ease)}
+.card:hover .card__img img{transform:scale(1.06)}
+.card__img .ph{font-size:1.7rem;opacity:.5}
+.card__body{padding:11px 12px 13px}
+.card__name{
+  font-size:.82rem;font-weight:500;line-height:1.32;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  min-height:2.2em;
+}
+.card__meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px}
+.card__price{font-family:"Bricolage Grotesque";font-weight:700;font-size:.86rem}
+.tag{
+  font-family:"Space Mono";font-size:.66rem;font-weight:700;letter-spacing:.02em;
+  padding:3px 8px;border-radius:999px;white-space:nowrap;
+  background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c);
+}
+.tag.mut{background:rgba(255,255,255,.06);color:var(--muted);font-weight:400}
+
+/* skeleton de chargement */
+.skel{background:var(--surface-2);border:1px solid var(--line);border-radius:13px;overflow:hidden}
+.skel .sk-img{height:118px;background:linear-gradient(100deg,#1a2a20,#22362a,#1a2a20);background-size:200% 100%;animation:shimmer 1.3s infinite}
+.skel .sk-line{height:10px;margin:12px;border-radius:6px;background:linear-gradient(100deg,#1a2a20,#22362a,#1a2a20);background-size:200% 100%;animation:shimmer 1.3s infinite}
+.skel .sk-line.short{width:50%}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+
+/* état vide (0 résultat) */
+.nores{
+  text-align:center;padding:60px 20px;color:var(--muted);
+}
+.nores .big{font-family:"Bricolage Grotesque";font-weight:700;font-size:1.3rem;color:var(--text);margin-bottom:8px}
+
+/* ---------- footer ---------- */
+footer{border-top:1px solid var(--line);padding:34px 0 60px;color:var(--muted);font-size:.86rem}
+footer .f-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px}
+footer .f-brand{font-family:"Bricolage Grotesque";font-weight:700;color:var(--text)}
+
+/* ---------- animations ---------- */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes drop{from{opacity:0;transform:translateY(-10px) scale(.97)}to{opacity:1;transform:none}}
+.reveal{opacity:0;animation:fadeUp .6s var(--ease) forwards}
+
+/* ---------- responsive ---------- */
+@media(max-width:900px){
+  .legend-grid{grid-template-columns:repeat(2,1fr)}
+  .board{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:620px){
+  .wrap{padding:0 18px}
+  .nav-links{gap:16px}
+  .nav-links .hide-sm{display:none}
+  .legend-grid{grid-template-columns:1fr 1fr}
+  .board{grid-template-columns:1fr}
+  .bin{opacity:1}
+  h1.title{font-size:clamp(2.2rem,10vw,3rem)}
+  .btn-go span{display:none}
+  .btn-go{padding:13px 15px}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+
+<div class="wrap">
+  <nav>
+    <a class="brand" href="/">
+      <span class="mark">♻</span>
+      <span class="name">Eco<b>Sort</b></span>
+    </a>
+    <div class="nav-links">
+      <a href="#legend" class="hide-sm">Les 5 poubelles</a>
+      <a href="#apropos" class="hide-sm">À propos</a>
+      <span class="nav-flag">🇨🇮 Côte d'Ivoire</span>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero reveal">
+    <span class="eyebrow"><span class="dot"></span>Tri intelligent par IA</span>
+    <h1 class="title">Quelle poubelle&nbsp;? <span class="grad">Demandez.</span></h1>
+    <p class="lede">
+      Cherchez un produit vendu sur Jumia. En moins de trois secondes, l'IA le classe
+      dans la bonne poubelle de tri — et vous montre exactement où le jeter.
+    </p>
+
+    <div class="search">
+      <div class="search-box">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="q" type="text" placeholder="Ex : bouteille d'eau, écouteurs bluetooth, pot de confiture…" autocomplete="off" />
+        <button id="go" class="btn-go">
+          <span>Trier</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+      <div class="chips" id="chips">
+        <span>Essayez :</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- LÉGENDE : les 5 poubelles -->
+  <section class="legend reveal" id="legend" style="animation-delay:.08s">
+    <h2>Les 5 destinations de tri</h2>
+    <div class="legend-grid" id="legend-grid"></div>
+  </section>
+
+  <!-- RÉSULTATS -->
+  <section class="results" id="results">
+    <div class="summary">
+      <div class="s-left">
+        <span class="s-count" id="s-count">0</span>
+        <span class="s-q" id="s-q"></span>
+        <span class="badge-demo" id="s-demo" style="display:none">● mode démo</span>
+      </div>
+      <button class="btn-reset" id="reset">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        Nouvelle recherche
+      </button>
+    </div>
+    <div class="board" id="board"></div>
+  </section>
+
+  <!-- À PROPOS -->
+  <section class="legend reveal" id="apropos" style="margin-top:20px">
+    <h2>Comment ça marche</h2>
+    <div class="legend-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="leg" style="--c:var(--mint);--cline:rgba(94,234,212,.4)">
+        <div class="lg-top"><span class="lg-emoji">🔎</span><span class="lg-name">1 · Recherche</span></div>
+        <div class="lg-desc">Le produit est recherché en direct sur Jumia Côte d'Ivoire : nom, prix et image.</div>
+      </div>
+      <div class="leg" style="--c:var(--emerald);--cline:rgba(47,191,113,.4)">
+        <div class="lg-top"><span class="lg-emoji">🧠</span><span class="lg-name">2 · Analyse IA</span></div>
+        <div class="lg-desc">Détection D3E par mots-clés, puis un CNN MobileNetV2 reconnaît la matière sur l'image.</div>
+      </div>
+      <div class="leg" style="--c:var(--c-BLEUE);--cline:rgba(59,130,246,.4)">
+        <div class="lg-top"><span class="lg-emoji">🗑️</span><span class="lg-name">3 · Tri</span></div>
+        <div class="lg-desc">Chaque produit tombe dans sa poubelle. Vous savez enfin où le jeter, sans hésiter.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="f-row">
+      <span><span class="f-brand">EcoSort-Search</span> — trier juste, sans y penser.</span>
+      <span>IA : mots-clés D3E + CNN MobileNetV2 · Données produits : Jumia CI</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+/* ------------------------------------------------------------------ *
+ *  EcoSort — logique front. Appelle l'API si dispo, sinon mode démo.  *
+ * ------------------------------------------------------------------ */
+const BIN_ORDER = ["JAUNE","VERTE","BLEUE","D3E","MARRON"];
+
+/* Métadonnées de secours (si /api/bins échoue en mode statique) */
+const FALLBACK_BINS = [
+  {key:"JAUNE", emoji:"🟡", label:"Poubelle jaune — Emballages", color:"#F5C518", text_color:"#1a1a1a",
+   description:"Emballages ménagers légers : bouteilles plastique, canettes, boîtes de conserve, briques, cartons."},
+  {key:"VERTE", emoji:"🟢", label:"Poubelle verte — Verre", color:"#16A34A", text_color:"#04140a",
+   description:"Verre d'emballage uniquement : bouteilles, pots de confiture, bocaux. Pas de vaisselle cassée."},
+  {key:"BLEUE", emoji:"🔵", label:"Poubelle bleue — Papier", color:"#3B82F6", text_color:"#ffffff",
+   description:"Papiers propres : journaux, magazines, cahiers, livres, enveloppes, prospectus."},
+  {key:"D3E", emoji:"🎛️", label:"Bac électronique — D3E", color:"#A78BFA", text_color:"#0e0a1f",
+   description:"Tout ce qui a une pile, une batterie ou une prise. À déposer en point de collecte, jamais ailleurs."},
+  {key:"MARRON", emoji:"⚫", label:"Poubelle marron — Résiduels", color:"#B45309", text_color:"#ffffff",
+   description:"Déchets non recyclables : restes, sachets et films plastiques, hygiène, objets multicouches."},
+];
+
+/* Jeu de démonstration (mode statique / Jumia injoignable) */
+const DEMO = {
+  demo:true,
+  products:[
+    {name:"Bouteille d'eau minérale 1,5L (pack de 6)", price:"3 500 FCFA", image_url:"", bin_key:"JAUNE", material:"plastic", confidence:.94, method:"cnn"},
+    {name:"Canette de soda 33cl", price:"400 FCFA", image_url:"", bin_key:"JAUNE", material:"metal", confidence:.91, method:"cnn"},
+    {name:"Boîte de conserve tomates pelées", price:"650 FCFA", image_url:"", bin_key:"JAUNE", material:"metal", confidence:.86, method:"cnn"},
+    {name:"Bocal en verre pour conserves 500ml", price:"1 200 FCFA", image_url:"", bin_key:"VERTE", material:"white-glass", confidence:.88, method:"cnn"},
+    {name:"Cahier 200 pages grands carreaux", price:"900 FCFA", image_url:"", bin_key:"BLEUE", material:"paper", confidence:.90, method:"cnn"},
+    {name:"Écouteurs Bluetooth sans fil", price:"12 900 FCFA", image_url:"", bin_key:"D3E", material:null, confidence:1, method:"d3e"},
+    {name:"Chargeur USB-C rapide 25W", price:"6 500 FCFA", image_url:"", bin_key:"D3E", material:null, confidence:1, method:"d3e"},
+    {name:"Sachet plastique de riz 5kg", price:"4 200 FCFA", image_url:"", bin_key:"MARRON", material:"trash", confidence:.60, method:"cnn"},
+  ]
+};
+
+const SUGGESTIONS = ["bouteille d'eau","écouteurs bluetooth","pot de confiture","cahier","chargeur","canette"];
+
+let BINS = {};   // key -> meta
+const $ = s => document.querySelector(s);
+
+/* ------- utilitaires ------- */
+const esc = s => (s??"").toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+function setBar(v){const b=$("#bar"); if(v==null){b.classList.remove("on");b.style.width="0";return;} b.classList.add("on"); b.style.width=v+"%";}
+
+function methodTag(p){
+  if(p.method==="d3e") return `<span class="tag">mots-clés D3E</span>`;
+  if(p.material) return `<span class="tag">${esc(p.material)} · ${Math.round((p.confidence||0)*100)}%</span>`;
+  if(p.method==="keyword") return `<span class="tag mut">indice au nom</span>`;
+  return `<span class="tag mut">non déterminé</span>`;
+}
+
+/* ------- rendu de la légende ------- */
+function renderLegend(){
+  const g = $("#legend-grid");
+  g.innerHTML = BIN_ORDER.map(k=>{
+    const b = BINS[k];
+    return `<div class="leg" style="--c:${b.color};--cline:${b.color}66">
+      <div class="lg-top"><span class="lg-emoji">${b.emoji}</span><span class="lg-name">${esc(shortName(b))}</span></div>
+      <div class="lg-desc">${esc(b.description)}</div>
+    </div>`;
+  }).join("");
+}
+function shortName(b){ // "Poubelle jaune — Emballages" -> "Jaune — Emballages"
+  const s = b.label.replace("Poubelle ","");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/* ------- rendu des chips ------- */
+function renderChips(){
+  const c = $("#chips");
+  SUGGESTIONS.forEach(s=>{
+    const el=document.createElement("button");
+    el.className="chip";el.type="button";el.textContent=s;
+    el.onclick=()=>{ $("#q").value=s; runSearch(s); };
+    c.appendChild(el);
+  });
+}
+
+/* ------- carte produit ------- */
+function card(p, i){
+  const b = BINS[p.bin_key] || {color:"#8CA396", text_color:"#000"};
+  const img = p.image_url
+    ? `<img src="${esc(p.image_url)}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<span class=&quot;ph&quot;>🖼️</span>'">`
+    : `<span class="ph">🖼️</span>`;
+  return `<article class="card" style="--c:${b.color};--cline:${b.color}66;animation-delay:${i*45}ms">
+    <div class="card__img">${img}</div>
+    <div class="card__body">
+      <div class="card__name">${esc(p.name)}</div>
+      <div class="card__meta">
+        <span class="card__price">${esc(p.price||"—")}</span>
+        ${methodTag(p)}
+      </div>
+    </div>
+  </article>`;
+}
+
+/* ------- squelette de chargement ------- */
+function renderSkeleton(){
+  const board=$("#board");
+  board.innerHTML = BIN_ORDER.map(k=>{
+    const b=BINS[k];
+    const skels = Array.from({length:2}).map(()=>`
+      <div class="skel"><div class="sk-img"></div><div class="sk-line"></div><div class="sk-line short"></div></div>`).join("");
+    return binShell(b, `<div class="bin__body">${skels}</div>`, "…", true);
+  }).join("");
+  $("#results").classList.add("show");
+  $("#s-count").textContent="…";
+  $("#s-q").innerHTML="";
+  $("#s-demo").style.display="none";
+}
+
+function binShell(b, bodyHtml, count, active){
+  return `<div class="bin ${active?'has':''}" style="--c:${b.color};--cline:${b.color}66;--cink:${b.text_color}">
+    <div class="bin__lid">
+      <span class="b-emoji">${b.emoji}</span>
+      <span class="b-name">${esc(shortName(b))}</span>
+      <span class="b-count">${count}</span>
+    </div>
+    ${bodyHtml}
+  </div>`;
+}
+
+/* ------- rendu des résultats ------- */
+function renderResults(data){
+  const grouped = Object.fromEntries(BIN_ORDER.map(k=>[k,[]]));
+  data.products.forEach(p=>{ (grouped[p.bin_key]||grouped.MARRON).push(p); });
+
+  const board=$("#board");
+  board.innerHTML = BIN_ORDER.map(k=>{
+    const b=BINS[k], items=grouped[k];
+    let body;
+    if(items.length){
+      body=`<div class="bin__body">${items.map((p,i)=>card(p,i)).join("")}</div>`;
+    }else{
+      body=`<div class="bin__body"><div class="bin__empty">Rien à trier ici pour cette recherche</div></div>`;
+    }
+    return binShell(b, body, items.length, items.length>0);
+  }).join("");
+
+  $("#s-count").textContent = data.products.length + (data.products.length>1?" produits triés":" produit trié");
+  $("#s-q").innerHTML = data.query ? `pour <b>« ${esc(data.query)} »</b>` : "";
+  $("#s-demo").style.display = data.demo ? "inline-block" : "none";
+  $("#results").classList.add("show");
+}
+
+function renderEmpty(query){
+  $("#board").innerHTML =
+    `<div class="nores" style="grid-column:1/-1">
+       <div class="big">Aucun produit trouvé pour « ${esc(query)} »</div>
+       <div>Essayez un autre mot-clé, plus simple ou plus courant.</div>
+     </div>`;
+  $("#s-count").textContent="0 produit";
+  $("#s-q").innerHTML = `pour <b>« ${esc(query)} »</b>`;
+  $("#s-demo").style.display="none";
+  $("#results").classList.add("show");
+}
+
+/* ------- recherche ------- */
+let busy=false;
+async function runSearch(kw){
+  const q = (kw ?? $("#q").value).trim();
+  if(!q || busy) return;
+  busy=true;
+  $("#go").disabled=true;
+  setBar(18); renderSkeleton();
+  $("#results").scrollIntoView({behavior:"smooth",block:"start"});
+
+  let data;
+  try{
+    setBar(48);
+    const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {headers:{Accept:"application/json"}});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    data = await r.json();
+  }catch(e){
+    // Pas de backend (fichier ouvert seul) ou API en échec -> démo
+    data = {...DEMO, query:q};
+  }
+  setBar(88);
+  await new Promise(res=>setTimeout(res, 260)); // laisse voir le skeleton
+
+  if(data.products && data.products.length) renderResults({...data, query:q});
+  else renderEmpty(q);
+
+  setBar(100); setTimeout(()=>setBar(null), 350);
+  busy=false; $("#go").disabled=false;
+}
+
+function reset(){
+  $("#results").classList.remove("show");
+  $("#board").innerHTML="";
+  $("#q").value="";
+  window.scrollTo({top:0,behavior:"smooth"});
+  $("#q").focus();
+}
+
+/* ------- init ------- */
+async function loadBins(){
+  let list = FALLBACK_BINS;
+  try{
+    const r = await fetch("/api/bins",{headers:{Accept:"application/json"}});
+    if(r.ok) list = await r.json();
+  }catch(e){/* mode statique -> fallback */}
+  BINS = Object.fromEntries(list.map(b=>[b.key,b]));
+  // injecte les couleurs des poubelles comme variables CSS globales
+  list.forEach(b=>document.documentElement.style.setProperty(`--c-${b.key}`, b.color));
+  renderLegend();
+}
+
+document.addEventListener("DOMContentLoaded", async ()=>{
+  await loadBins();
+  renderChips();
+  $("#go").addEventListener("click", ()=>runSearch());
+  $("#q").addEventListener("keydown", e=>{ if(e.key==="Enter") runSearch(); });
+  $("#reset").addEventListener("click", reset);
+});
+</script>
+</body>
+</html>
