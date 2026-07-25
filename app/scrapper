@@ -1,0 +1,134 @@
+"""
+Scraper Jumia — Jalon 2.
+
+Interroge le moteur de recherche de Jumia (Côte d'Ivoire par défaut) à partir
+du mot-clé saisi par l'utilisateur et retourne 3 à 5 produits pertinents :
+nom, prix, URL de l'image, lien produit.
+
+Stratégie : Requests + BeautifulSoup avec plusieurs sélecteurs de secours,
+car la structure HTML de Jumia évolue régulièrement. Si le HTML change trop,
+basculer vers Selenium (voir docs/CONTRIBUTING.md).
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, asdict
+from urllib.parse import quote_plus, urljoin
+
+import requests
+from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
+
+# Domaine Jumia : adapter selon le pays (jumia.ci, jumia.com.ng, jumia.ma...)
+BASE_URL = "https://www.jumia.ci"
+SEARCH_URL = BASE_URL + "/catalog/?q={query}"
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
+
+TIMEOUT = 15  # secondes
+
+
+@dataclass
+class Product:
+    name: str
+    price: str
+    image_url: str
+    product_url: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+def _extract_image(article) -> str:
+    """Jumia charge les images en lazy-loading : l'URL réelle est souvent
+    dans `data-src` plutôt que `src`."""
+    img = article.select_one("img")
+    if img is None:
+        return ""
+    return img.get("data-src") or img.get("src") or ""
+
+
+def search_jumia(keyword: str, max_results: int = 5) -> list[Product]:
+    """
+    Recherche `keyword` sur Jumia et retourne au plus `max_results` produits.
+
+    Lève requests.RequestException en cas de problème réseau.
+    Retourne une liste vide si aucun produit n'est trouvé.
+    """
+    url = SEARCH_URL.format(query=quote_plus(keyword))
+    logger.info("Scraping Jumia : %s", url)
+
+    response = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+    response.raise_for_status()
+
+    soup = BeautifulSoup(response.text, "lxml")
+
+    # Sélecteurs principaux + secours (la structure Jumia change souvent)
+    articles = (
+        soup.select("article.prd")
+        or soup.select("article.c-prd")
+        or soup.select("div.-paxs article")
+        or soup.select("[data-catalog] article")
+    )
+
+    products: list[Product] = []
+    for article in articles:
+        name_tag = (
+            article.select_one("h3.name")
+            or article.select_one(".name")
+            or article.select_one("h3")
+        )
+        price_tag = (
+            article.select_one("div.prc")
+            or article.select_one(".prc")
+        )
+        link_tag = article.select_one("a.core") or article.select_one("a")
+
+        if name_tag is None or link_tag is None:
+            continue
+
+        product = Product(
+            name=name_tag.get_text(strip=True),
+            price=price_tag.get_text(strip=True) if price_tag else "Prix N/C",
+            image_url=_extract_image(article),
+            product_url=urljoin(BASE_URL, link_tag.get("href", "")),
+        )
+        products.append(product)
+
+        if len(products) >= max_results:
+            break
+
+    logger.info("%d produit(s) trouvé(s) pour '%s'", len(products), keyword)
+    return products
+
+
+def download_image(image_url: str) -> bytes | None:
+    """Télécharge l'image d'un produit (pour la passer au modèle)."""
+    if not image_url:
+        return None
+    try:
+        resp = requests.get(image_url, headers=HEADERS, timeout=TIMEOUT)
+        resp.raise_for_status()
+        return resp.content
+    except requests.RequestException as exc:
+        logger.warning("Échec du téléchargement de l'image : %s", exc)
+        return None
+
+
+if __name__ == "__main__":
+    # Test rapide en ligne de commande : python app/scraper.py
+    logging.basicConfig(level=logging.INFO)
+    import sys
+
+    kw = sys.argv[1] if len(sys.argv) > 1 else "bouteille d'eau"
+    for p in search_jumia(kw):
+        print(f"- {p.name} | {p.price} | {p.product_url}")
